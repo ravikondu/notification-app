@@ -5,11 +5,11 @@ import (
 	"github.com/ravikondu/notification-app/constants/notificationType"
 	userDto "github.com/ravikondu/notification-app/dto/user"
 	userEntity "github.com/ravikondu/notification-app/entities/user"
+	userDao "github.com/ravikondu/notification-app/dao/user"
 	"github.com/ravikondu/notification-app/notifications/call"
 	"github.com/ravikondu/notification-app/notifications/email"
 	"github.com/ravikondu/notification-app/notifications/sms"
 	"runtime/debug"
-	userDao "github.com/ravikondu/notification-app/dao/user"
 	"sync"
 )
 
@@ -42,8 +42,11 @@ func SendNotificationToUsers() {
 		return
 	}
 	wg := sync.WaitGroup{}
+	const maxRoutines = 10 // This can vary as per requirement
+	channel := make(chan int, maxRoutines)
 	for _, user := range users {
 		wg.Add(1)
+		channel <- 1
 		go func(user userEntity.User) {
 			defer func() {
 				r := recover()
@@ -57,10 +60,10 @@ func SendNotificationToUsers() {
 				response := notificationHandler.SendNotification(&user)
 				fmt.Println("Response for notification ", response)
 			}
-
+			<- channel
 		}(user)
 
-
 	}
+	close(channel)
 	wg.Wait()
 }
